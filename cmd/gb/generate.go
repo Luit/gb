@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,16 @@ func init() {
 	registerCommand(GenerateCmd)
 }
 
+var (
+	generateN bool
+	generateX bool
+)
+
+func addGenerateFlags(fs *flag.FlagSet) {
+	fs.BoolVar(&generateN, "n", false, "print commands that would be executed")
+	fs.BoolVar(&generateX, "x", false, "print commands as they are executed")
+}
+
 var GenerateCmd = &cmd.Command{
 	Name:      "generate",
 	UsageLine: "generate",
@@ -24,12 +35,23 @@ source files, for instance by running yacc.
 
 See 'go help generate'`,
 	Run: func(ctx *gb.Context, args []string) error {
+		bin, err := exec.LookPath("go")
+		if err != nil {
+			return err
+		}
 		env := cmd.MergeEnv(os.Environ(), map[string]string{
 			"GOPATH": fmt.Sprintf("%s:%s", ctx.Projectdir(), filepath.Join(ctx.Projectdir(), "vendor")),
 		})
-
-		args = append([]string{filepath.Join(ctx.GOROOT, "bin", "go"), "generate"}, args...)
-
+		if generateN {
+			args = append([]string{"-n"}, args...)
+		}
+		if generateX {
+			args = append([]string{"-x"}, args...)
+		}
+		if gb.Verbose {
+			args = append([]string{"-v"}, args...)
+		}
+		args = append([]string{bin, "generate"}, args...)
 		cmd := exec.Cmd{
 			Path: args[0],
 			Args: args,
@@ -42,4 +64,5 @@ See 'go help generate'`,
 
 		return cmd.Run()
 	},
+	AddFlags: addGenerateFlags,
 }
